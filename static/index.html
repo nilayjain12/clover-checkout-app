@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clover Payment App</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+            background-color: #f5f7fa; 
+            margin: 0; 
+        }
+        .container { 
+            text-align: center; 
+            padding: 2rem 3rem; 
+            background: white; 
+            border-radius: 12px; 
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1); 
+            max-width: 500px; 
+            width: 100%; 
+        }
+        h1 { color: #333; margin-bottom: 1.5rem; }
+        p { color: #666; line-height: 1.5; }
+        .button {
+            display: inline-block;
+            padding: 12px 24px;
+            margin: 10px 5px;
+            font-size: 16px;
+            font-weight: 600;
+            color: white;
+            background-color: #28a745;
+            border: none;
+            border-radius: 8px;
+            text-decoration: none;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+        .button:hover { background-color: #218838; transform: translateY(-2px); }
+        .button.secondary {
+            background-color: #6c757d;
+        }
+        .button.secondary:hover {
+            background-color: #5a6268;
+        }
+        .button.danger {
+            background-color: #dc3545;
+        }
+        .button.danger:hover {
+            background-color: #c82333;
+        }
+        .form-group { margin-bottom: 1.5rem; text-align: left; }
+        label { display: block; margin-bottom: 0.5rem; font-weight: 500; color: #333; }
+        input { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; }
+        .hidden { display: none; }
+        #payment-status { margin-top: 1.5rem; padding: 1rem; border-radius: 8px; font-weight: 500; }
+        .status-success { background-color: #e9f7ef; color: #28a745; }
+        .status-error { background-color: #fce8e6; color: #dc3545; }
+        .status-info { background-color: #e3f2fd; color: #1976d2; }
+        .merchant-info {
+            background-color: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            border-left: 4px solid #28a745;
+        }
+        .transactions-section {
+            margin-top: 2rem;
+            text-align: left;
+        }
+        .transaction-item {
+            background-color: #f8f9fa;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: 8px;
+            border-left: 4px solid #28a745;
+        }
+        .transaction-item.failed {
+            border-left-color: #dc3545;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #28a745;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Clover Payment App</h1>
+        
+        <!-- Login Section -->
+        <div id="login-section">
+            <p>Authorize the application to start processing payments.</p>
+            <a href="/auth/login" class="button">Login with Clover</a>
+        </div>
+
+        <!-- Payment Section -->
+        <div id="payment-section" class="hidden">
+            <div id="merchant-info" class="merchant-info">
+                <strong>Merchant ID:</strong> <span id="merchant-id">Loading...</span>
+            </div>
+            
+            <p>Enter payment details below.</p>
+            <form id="payment-form">
+                <div class="form-group">
+                    <label for="amount">Amount (USD)</label>
+                    <input type="number" id="amount" name="amount" step="0.01" min="0.01" placeholder="e.g., 10.50" required>
+                </div>
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <input type="text" id="description" name="description" placeholder="e.g., Coffee and Cake" required maxlength="100">
+                </div>
+                <button type="submit" class="button" id="submit-btn">
+                    <span id="submit-text">Submit Payment</span>
+                    <span id="submit-loading" class="loading hidden"></span>
+                </button>
+            </form>
+            <div id="payment-status"></div>
+            
+            <div style="margin-top: 2rem;">
+                <button class="button secondary" onclick="loadTransactions()">View Recent Transactions</button>
+                <a href="/auth/logout" class="button danger">Logout</a>
+            </div>
+        </div>
+
+        <!-- Transactions Section -->
+        <div id="transactions-section" class="hidden">
+            <h3>Recent Transactions</h3>
+            <div id="transactions-list"></div>
+            <button class="button secondary" onclick="hideTransactions()">Back to Payment</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const loginSection = document.getElementById('login-section');
+            const paymentSection = document.getElementById('payment-section');
+            const paymentForm = document.getElementById('payment-form');
+            const statusDiv = document.getElementById('payment-status');
+            const merchantIdSpan = document.getElementById('merchant-id');
+
+            // Check authentication status
+            try {
+                const response = await fetch('/auth/status');
+                const data = await response.json();
+
+                if (data.authenticated) {
+                    loginSection.classList.add('hidden');
+                    paymentSection.classList.remove('hidden');
+                    if (data.merchant_id) {
+                        merchantIdSpan.textContent = data.merchant_id;
+                    }
+                } else {
+                    loginSection.classList.remove('hidden');
+                    paymentSection.classList.add('hidden');
+                }
+            } catch (error) {
+                console.error("Error checking auth status:", error);
+                loginSection.classList.remove('hidden');
+                paymentSection.classList.add('hidden');
+            }
+
+            // Handle payment form submission
+            paymentForm.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                
+                const submitBtn = document.getElementById('submit-btn');
+                const submitText = document.getElementById('submit-text');
+                const submitLoading = document.getElementById('submit-loading');
+                
+                // Show loading state
+                submitText.classList.add('hidden');
+                submitLoading.classList.remove('hidden');
+                submitBtn.disabled = true;
+                
+                statusDiv.innerHTML = 'Processing payment...';
+                statusDiv.className = 'status-info';
+
+                const amount = document.getElementById('amount').value;
+                const description = document.getElementById('description').value;
+
+                try {
+                    const response = await fetch('/pay', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            amount: parseFloat(amount),
+                            description: description
+                        })
+                    });
+
+                    const result = await response.json();
+
+                    if (!response.ok) {
+                        const errorMessage = result.detail || `HTTP Error ${response.status}: ${response.statusText}`;
+                        throw new Error(errorMessage);
+                    }
+
+                    statusDiv.innerHTML = `
+                        <strong>Payment Successful!</strong><br>
+                        Payment ID: ${result.payment_id}<br>
+                        Order ID: ${result.order_id}<br>
+                        Status: ${result.status}<br>
+                        Amount: $${result.amount} ${result.currency}
+                    `;
+                    statusDiv.className = 'status-success';
+                    
+                    // Clear form
+                    paymentForm.reset();
+                    
+                } catch (error) {
+                    console.error('Payment Error:', error);
+                    statusDiv.innerHTML = `<strong>Error:</strong> ${error.message}`;
+                    statusDiv.className = 'status-error';
+                } finally {
+                    // Always reset button state
+                    submitText.classList.remove('hidden');
+                    submitLoading.classList.add('hidden');
+                    submitBtn.disabled = false;
+                }
+            });
+        });
+
+        async function loadTransactions() {
+            const transactionsSection = document.getElementById('transactions-section');
+            const paymentSection = document.getElementById('payment-section');
+            const transactionsList = document.getElementById('transactions-list');
+            
+            try {
+                const response = await fetch('/transactions');
+                const data = await response.json();
+                
+                if (data.transactions && data.transactions.length > 0) {
+                    let html = '';
+                    data.transactions.forEach(tx => {
+                        const statusClass = tx.status === 'FAILED' ? 'failed' : '';
+                        html += `
+                            <div class="transaction-item ${statusClass}">
+                                <strong>${tx.description}</strong><br>
+                                Amount: $${tx.amount_usd} ${tx.currency}<br>
+                                Status: ${tx.status}<br>
+                                Payment ID: ${tx.payment_id}<br>
+                                Order ID: ${tx.order_id}<br>
+                                <small>${new Date(tx.timestamp).toLocaleString()}</small>
+                            </div>
+                        `;
+                    });
+                    transactionsList.innerHTML = html;
+                } else {
+                    transactionsList.innerHTML = '<p>No transactions found.</p>';
+                }
+                
+                paymentSection.classList.add('hidden');
+                transactionsSection.classList.remove('hidden');
+            } catch (error) {
+                console.error('Error loading transactions:', error);
+                transactionsList.innerHTML = '<p>Error loading transactions.</p>';
+            }
+        }
+
+        function hideTransactions() {
+            const transactionsSection = document.getElementById('transactions-section');
+            const paymentSection = document.getElementById('payment-section');
+            
+            transactionsSection.classList.add('hidden');
+            paymentSection.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
