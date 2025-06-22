@@ -7,6 +7,7 @@ A simple and robust web application that integrates with the Clover REST API to 
 - **Clover OAuth 2.0:** Secure authentication flow to connect to a merchant's Clover account.
 - **Secure Token Management:** Access tokens are securely stored and managed by the backend.
 - **Payment Processing:** A complete payment flow that creates an order, adds a line item, and processes a payment using the Clover API.
+- **Dynamic Tender Selection:** The app automatically fetches and uses the correct tender ID for "Credit Card" for each merchant, ensuring compatibility with any merchant account.
 - **Transaction History:** View a list of recent transactions and their status (successful or failed).
 - **Modern UI:** A clean, responsive user interface with clear user feedback, including loading states and error messages.
 - **Containerized:** Uses Docker and Docker Compose, allowing the application to be run with a single command.
@@ -107,6 +108,8 @@ The application will be available at [http://localhost:8000](http://localhost:80
 3.  After being redirected, you will see the main payment form. The Merchant ID will be displayed.
 4.  Enter a payment amount and a description.
 5.  Click **Submit Payment**. The application will show the transaction status.
+    - The app will automatically use the correct tender for "Credit Card" for your merchant. If you switch merchants, it will still work without any code changes.
+    - **Note:** In the Clover sandbox, payment status may show as `UNKNOWN` even if the payment is successful. This is normal for test transactions.
 6.  Click **View Recent Transactions** to see a history of payments.
 7.  Click **Logout** to clear your session token.
 
@@ -153,3 +156,5 @@ This will execute the tests inside the Docker container, ensuring a consistent e
 
 -   **`401 Unauthorized` Error:** This almost always means the access token does not have the correct permissions. Ensure you have set all the **Required Permissions** correctly in the Clover dashboard and, most importantly, **you must Logout and Login again** after saving any permission changes to generate a new token.
 -   **`token.json` Issues:** The application creates `token.json` to store your OAuth token. If you encounter strange authentication issues, you can stop the app (`make down`), delete `token.json` from the project root, and start it again.
+-   **`Tender not found` Error:** The app now dynamically fetches the correct tender ID for "Credit Card" for each merchant. If you see this error, ensure the merchant account has an enabled "Credit Card" tender in Clover.
+-   **Payment Status is `UNKNOWN`:** In the Clover sandbox, payment status may remain `UNKNOWN` for test transactions. This is expected and does not indicate a failure.

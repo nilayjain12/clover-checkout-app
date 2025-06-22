@@ -86,14 +86,16 @@ class TestTokenUtils:
 class TestTransactionUtils:
     def test_log_transaction(self):
         """Test transaction logging functionality."""
+        import logging
         # Create a temporary log file
         with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
             temp_log_file = f.name
-        
-        # Mock the logging configuration
-        original_filename = transaction_utils.logging.getLogger().handlers[0].baseFilename
-        transaction_utils.logging.getLogger().handlers[0].baseFilename = temp_log_file
-        
+
+        # Set up a FileHandler for the logger
+        logger = logging.getLogger()
+        handler = logging.FileHandler(temp_log_file)
+        logger.addHandler(handler)
+
         try:
             # Test transaction data
             test_transaction = {
@@ -104,21 +106,22 @@ class TestTransactionUtils:
                 "currency": "USD",
                 "description": "Test Payment"
             }
-            
+
             # Log transaction
             transaction_utils.log_transaction(test_transaction)
-            
+
             # Check if log file was created and contains the transaction
             assert os.path.exists(temp_log_file)
-            
+
             with open(temp_log_file, 'r') as f:
                 log_content = f.read()
                 assert "Test Payment" in log_content
                 assert "test_payment_123" in log_content
-                
+
         finally:
-            # Cleanup
-            transaction_utils.logging.getLogger().handlers[0].baseFilename = original_filename
+            # Clean up handler and temp file
+            logger.removeHandler(handler)
+            handler.close()
             if os.path.exists(temp_log_file):
                 os.unlink(temp_log_file)
 

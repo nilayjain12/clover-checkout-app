@@ -81,6 +81,17 @@ def add_line_item_to_order(access_token: str, merchant_id: str, order_id: str, a
         })
         raise
 
+def get_credit_card_tender_id(access_token: str, merchant_id: str):
+    url = f"{BASE_API_URL}/v3/merchants/{merchant_id}/tenders"
+    headers = get_headers(access_token)
+    response = requests.get(url, headers=headers)
+    response.raise_for_status()
+    tenders = response.json().get("elements", [])
+    for tender in tenders:
+        if tender.get("labelKey") == "com.clover.tender.credit_card" and tender.get("enabled", False):
+            return tender["id"]
+    raise Exception("No enabled Credit Card tender found for this merchant.")
+
 def create_payment_for_order(access_token: str, merchant_id: str, order_id: str, amount: int, currency: str):
     """
     Initiates a payment for an order using a test card token. Amount should be in cents.
@@ -88,14 +99,18 @@ def create_payment_for_order(access_token: str, merchant_id: str, order_id: str,
     """
     url = f"{BASE_API_URL}/v3/merchants/{merchant_id}/payments"
     headers = get_headers(access_token)
-    # "ecom" is a generic source for card-not-present test transactions.
+    # Dynamically get the correct tender id for 'Credit Card'
+    tender_id = get_credit_card_tender_id(access_token, merchant_id)
     payload = {
         "order": {
             "id": order_id
         },
         "amount": amount,
         "currency": currency.upper(),
-        "source": "ecom"
+        "source": "ecom",
+        "tender": {
+            "id": tender_id
+        }
     }
     
     try:
@@ -150,3 +165,10 @@ def get_merchant_info(access_token: str, merchant_id: str):
     except requests.exceptions.RequestException as e:
         transaction_utils.log_error("GET_MERCHANT_INFO_ERROR", str(e), {"merchant_id": merchant_id})
         raise
+
+def get_tenders(access_token: str, merchant_id: str):
+    url = f"{BASE_API_URL}/v3/merchants/{merchant_id}/tenders"
+    headers = get_headers(access_token)
+    response = requests.get(url, headers=headers)
+    response.raise_for_status()
+    return response.json()
