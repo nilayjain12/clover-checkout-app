@@ -112,11 +112,27 @@ The application will be available at [http://localhost:8000](http://localhost:80
 
 ## Running Tests
 
-To run the included unit tests, use the following command:
+To run the included unit tests, you have two options:
 
+### 1. Using Make (if available)
 ```bash
 make test
 ```
+
+### 2. Using Docker Compose (Alternative for Windows users)
+If you do not have `make` installed, you can run the tests directly using Docker Compose:
+
+- **Run all tests:**
+  ```bash
+  docker-compose run --rm clover-checkout-app pytest
+  ```
+
+- **Run a specific test file (e.g., test_main.py):**
+  ```bash
+  docker-compose run --rm clover-checkout-app pytest test_main.py
+  ```
+
+This will execute the tests inside the Docker container, ensuring a consistent environment.
 
 ## Other Commands
 
